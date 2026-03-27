@@ -1,0 +1,94 @@
+services:
+
+  tsmanager:
+    image: yourdockerhubusername/tsmanager:latest
+    container_name: tsmanager_app
+    restart: always
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION}
+
+    volumes:
+      - dataprotection_keys:/root/.aspnet/DataProtection-Keys
+
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.tsmanager.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.tsmanager.entrypoints=web"
+      - "traefik.http.routers.tsmanager.middlewares=redirect-to-https"
+
+      - "traefik.http.routers.tsmanager-secure.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.tsmanager-secure.entrypoints=websecure"
+      - "traefik.http.routers.tsmanager-secure.tls=true"
+      - "traefik.http.routers.tsmanager-secure.tls.certresolver=letsencrypt"
+
+      - "traefik.http.services.tsmanager.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+    networks:
+      - traefik
+      - backend
+
+  mysql:
+    image: mysql:8
+    container_name: tsmanager_db
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 10
+
+    networks:
+      - backend
+
+  backup:
+    image: mysql:8
+    container_name: tsmanager_backup
+
+    depends_on:
+      - mysql
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./db_backups:/backup
+
+    command: >
+      bash -c "while true; do
+      mysqldump -h mysql -u root -p${MYSQL_ROOT_PASSWORD} ${MYSQL_DATABASE} > /backup/backup-$$(date +%F-%H-%M).sql;
+      sleep 86400;
+      done"
+
+    networks:
+      - backend
+
+volumes:
+  mysql_data:
+  dataprotection_keys:
+
+networks:
+  backend:
+  traefik:
+    external: true
