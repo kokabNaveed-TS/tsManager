@@ -1,7 +1,7 @@
 services:
 
   tsmanager:
-    image: yourdockerhubusername/tsmanager:latest
+    image: Kokabnaveedts/tsmanager:latest
     container_name: tsmanager_app
     restart: always
 
