@@ -1,7 +1,7 @@
 services:
 
   tsmanager:
-    image: Kokabnaveedts/tsmanager:latest
+    image: kokabnaveedts/tsmanager:latest
     container_name: tsmanager_app
     restart: always
 
